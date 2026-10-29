@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <!-- maximum-scale stops phones zooming in when you tap the note -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Quick Add</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Quick Add">
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M6 6h52v38L44 58H6z' fill='%23ffe873'/%3E%3Cpath d='M44 58V44h14' fill='%23e8cf4a'/%3E%3Cpath d='M16 22h32M16 32h26' stroke='%23866d00' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #eef0f3; --text: #1d2330; --muted: #677084; --border: #dfe3ea; --card: #ffffff;
+      --note: #fff7b8; --note-line: #ecdf8a; --note-text: #2b2610; --note-shadow: rgba(80, 70, 0, .18);
+      --accent: #3b5bdb; --accent-text: #ffffff;
+      --warn-bg: #fff3d6; --warn-border: #f0c75e; --ok-bg: #e8f6ee; --ok-border: #7cc8a0;
+      --err: #b42318;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #12151c; --text: #e7eaf0; --muted: #98a1b3; --border: #2d3442; --card: #1b2029;
+        --note: #3b3517; --note-line: #4f4720; --note-text: #f5eebf; --note-shadow: rgba(0, 0, 0, .5);
+        --accent: #7b93ff; --accent-text: #0e1220;
+        --warn-bg: #3a2f12; --warn-border: #8a6d1f; --ok-bg: #133024; --ok-border: #2f7a55;
+        --err: #ff8a80;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font: 11pt/1.4 "Crimson Text", Georgia, "Times New Roman", serif;
+    }
+    main { max-width: 640px; margin: 0 auto; padding: 16px 16px 40px; }
+    header { display: flex; align-items: baseline; justify-content: space-between; margin: 4px 2px 12px; }
+    h1 { font-size: 15pt; margin: 0; }
+    #sync { font-size: 10pt; color: var(--muted); }
+
+    .note {
+      background: var(--note); border-radius: 4px 4px 4px 18px; padding: 14px 16px 18px;
+      box-shadow: 0 6px 18px var(--note-shadow);
+    }
+    textarea {
+      display: block; width: 100%; min-height: 45vh; resize: none; border: 0; outline: 0;
+      background: transparent repeating-linear-gradient(to bottom, transparent 0, transparent 25px, var(--note-line) 25px, var(--note-line) 26px);
+      background-attachment: local;
+      color: var(--note-text); font: inherit; font-size: 11pt; line-height: 26px; padding: 0;
+    }
+    textarea::placeholder { color: var(--note-text); opacity: .45; }
+
+    .bar { display: flex; gap: 8px; margin: 14px 0 0; }
+    .bar button { font: inherit; font-weight: 700; border-radius: 10px; padding: 11px 14px; cursor: pointer; }
+    #add { flex: 1; background: var(--accent); color: var(--accent-text); border: 1px solid var(--accent); font-size: 11pt; }
+    #add:disabled { opacity: .5; cursor: default; }
+    #clear { background: transparent; color: var(--muted); border: 1px solid var(--border); font-size: 11pt; }
+    .hint { font-size: 10pt; color: var(--muted); margin: 8px 2px 0; }
+
+    h2 { font-size: 9pt; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 24px 2px 8px; }
+    .list { list-style: none; margin: 0; padding: 0; background: var(--card); border: 1px solid var(--border); border-radius: 12px; }
+    .list li { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+    .list li:last-child { border-bottom: 0; }
+    .list .t { font-weight: 700; word-break: break-word; }
+    .list .d { font-size: 10pt; color: var(--muted); margin-top: 2px; }
+    .list .d span { margin-right: 12px; display: inline-block; }
+    .list .e { font-size: 10pt; color: var(--err); margin-top: 2px; }
+    .list li.ok { background: var(--ok-bg); }
+    .list li.warn { background: var(--warn-bg); }
+    .row { display: flex; gap: 8px; margin-top: 8px; }
+    .row button, .link {
+      font: inherit; font-size: 10pt; font-weight: 700; cursor: pointer; border-radius: 8px; padding: 7px 12px;
+      background: transparent; color: var(--accent); border: 1px solid var(--accent);
+    }
+    .row button.solid { background: var(--accent); color: var(--accent-text); }
+    .link { border: 0; padding: 0 0 0 8px; }
+    [hidden] { display: none !important; }
+
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+    .card p { margin: 0 0 12px; }
+    .card label { display: block; font-size: 10pt; color: var(--muted); margin: 12px 0 4px; }
+    .card input {
+      width: 100%; font: inherit; font-size: 11pt; color: var(--text); background: var(--bg);
+      border: 1px solid var(--border); border-radius: 8px; padding: 9px 10px;
+    }
+    .card .go {
+      width: 100%; margin-top: 16px; font: inherit; font-weight: 700; font-size: 11pt; border-radius: 10px;
+      padding: 11px; cursor: pointer; background: var(--accent); color: var(--accent-text); border: 1px solid var(--accent);
+    }
+    .card .e { color: var(--err); font-size: 10pt; margin-top: 10px; }
+    #linkBox { margin-bottom: 14px; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Quick Add</h1>
+    <span id="sync">Loading…</span>
+  </header>
+
+  <section id="setup" hidden>
+    <div class="card">
+      <p><b>One-time setup on this device.</b> After this, your private link opens straight to your note.</p>
+      <label for="setupUrl">Web app URL (Apps Script → Deploy → Manage deployments)</label>
+      <input id="setupUrl" placeholder="https://script.google.com/macros/s/AKfy…/exec" autocomplete="off" spellcheck="false">
+      <label for="setupKey">Key (run getMyKey in Apps Script, then copy it from the Execution log)</label>
+      <input id="setupKey" autocomplete="off" spellcheck="false">
+      <button class="go" id="setupGo">Connect</button>
+      <div class="e" id="setupMsg"></div>
+    </div>
+  </section>
+
+  <div id="app" hidden>
+  <div class="card" id="linkBox" hidden>
+    <b>Connected.</b> The address bar now holds your private link. Bookmark it, and send it to your
+    phone to use it there. Keep it private: it works like a password.
+    <div class="row"><button class="solid" id="copyLink">Copy link</button><button id="hideLink">Done</button></div>
+  </div>
+
+  <div class="note">
+    <textarea id="note" spellcheck="false" placeholder="One item per line, parts separated by  -
+comp1633 final - 12/14/2026 - 3pm - room B220
+pay rent - 11/1
+dentist - fri - 10:30am - remind 1 week before"></textarea>
+  </div>
+
+  <div class="bar">
+    <button id="add" disabled>Add to calendar</button>
+    <button id="clear" hidden>Clear ✓ lines</button>
+  </div>
+  <p class="hint">Lines that have been added get a ✓. Every item gets a reminder 1 hour and 1 day before.</p>
+
+  <section id="resultsWrap" hidden>
+    <h2>Just now</h2>
+    <ul class="list" id="results"></ul>
+  </section>
+
+  <section id="previewWrap" hidden>
+    <h2>Ready to add</h2>
+    <ul class="list" id="preview"></ul>
+  </section>
+  </div>
+</main>
+
+<script>
+// =====================================================================
+// Line parser:  title - date - time - location - remind ... before
+// Parts after the title can come in any order.
+// =====================================================================
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+const WORDNUM = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+const DONE = '✓';
+
+function ymd(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function today() { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }
+
+function makeDate(y, m, d, yearGiven) {
+  const t = today();
+  if (y == null) y = t.getFullYear();
+  else if (y < 100) y += 2000;
+  let dt = new Date(y, m - 1, d);
+  if (dt.getMonth() !== m - 1 || dt.getDate() !== d) return null;     // e.g. 2/30
+  if (!yearGiven && dt < t) dt = new Date(y + 1, m - 1, d);            // "12/14" in the past → next year
+  return ymd(dt);
+}
+
+const MONTH_NAMES = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+const WEEKDAY = '(?:sun|sunday|mon|monday|tue|tues|tuesday|wed|weds|wednesday|thu|thur|thurs|thursday|fri|friday|sat|saturday)';
+
+// "dec", "dec.", "decem", "december", "sept", even a typo like "decemeber" → 12
+function monthIndex(s) {
+  s = s.replace(/\.$/, '');
+  if (s.length < 3) return null;
+  const full = MONTH_NAMES.findIndex(n => n.startsWith(s));
+  if (full !== -1) return full + 1;
+  const abbr = MONTHS.indexOf(s.slice(0, 3));
+  return abbr !== -1 && s.length <= 10 ? abbr + 1 : null;
+}
+
+function shift(days) { const d = today(); d.setDate(d.getDate() + days); return ymd(d); }
+
+function parseDate(input) {
+  const hadOrdinal = /\d(st|nd|rd|th)\b/i.test(input);
+  let s = input.trim().toLowerCase()
+    .replace(/[(),]/g, ' ')
+    .replace(/(\d)(st|nd|rd|th)\b/g, '$1')
+    .replace(/\b(on|due|by|the|of|this)\b/g, ' ')
+    .replace(/\s+/g, ' ').trim();
+  let m;
+
+  // words
+  if (/^(today|tonight|tdy|tod)$/.test(s)) return shift(0);
+  if (/^(tomorrow|tmrw|tmr|tmrrw|tomorow|tommorow|tommorrow)( night| morning)?$/.test(s)) return shift(1);
+  if (/^(day after tomorrow|overmorrow)$/.test(s)) return shift(2);
+  if (s === 'next week') return shift(7);
+  if ((m = s.match(/^in (\d+|an?|one|two|three|four|five|six|seven|eight|nine|ten) (day|week|month)s?$/))) {
+    const n = /^\d/.test(m[1]) ? +m[1] : WORDNUM[m[1]];
+    if (m[2] === 'month') { const d = today(); d.setMonth(d.getMonth() + n); return ymd(d); }
+    return shift(n * (m[2] === 'week' ? 7 : 1));
+  }
+  if ((m = s.match(new RegExp('^(next )?(' + WEEKDAY + ')$')))) {
+    const want = DAYS.indexOf(m[2].slice(0, 3));
+    let add = (want - today().getDay() + 7) % 7;
+    if (m[1] && add === 0) add = 7;                                    // "next fri" on a Friday = a week out
+    return shift(add);
+  }
+
+  // A weekday written next to a real date is just decoration: "fri dec 12", "12/12 (fri)"
+  const bare = s.replace(new RegExp('\\b' + WEEKDAY + '\\b', 'g'), ' ').replace(/\s+/g, ' ').trim();
+  if (bare && bare !== s) return parseDate(bare);
+
+  // numbers: 2026-12-14, 2026/12/14
+  if ((m = s.match(/^(\d{4})[\/.\-](\d{1,2})[\/.\-](\d{1,2})$/))) return makeDate(+m[1], +m[2], +m[3], true);
+  // 12/14, 12-14, 12.14, 12/14/26, 12/14/2026 (month first; 14/12 is understood too, since 14 can't be a month)
+  if ((m = s.match(/^(\d{1,2})[\/.\-](\d{1,2})(?:[\/.\-](\d{2}|\d{4}))?$/))) {
+    let mo = +m[1], d = +m[2];
+    if (mo > 12 && d <= 12) [mo, d] = [d, mo];
+    return makeDate(m[3] ? +m[3] : null, mo, d, !!m[3]);
+  }
+  // dec 14, december 14 2026, dec. 14
+  if ((m = s.match(/^([a-z]+\.?) (\d{1,2})(?: (\d{4}|\d{2}))?$/)) && monthIndex(m[1]))
+    return makeDate(m[3] ? +m[3] : null, monthIndex(m[1]), +m[2], !!m[3]);
+  // 14 dec, 14 december 2026
+  if ((m = s.match(/^(\d{1,2}) ([a-z]+\.?)(?: (\d{4}|\d{2}))?$/)) && monthIndex(m[2]))
+    return makeDate(m[3] ? +m[3] : null, monthIndex(m[2]), +m[1], !!m[3]);
+  // "the 14th" → the next 14th of a month
+  if (hadOrdinal && (m = s.match(/^(\d{1,2})$/))) {
+    const t = today(), day = +m[1];
+    for (let i = 0; i < 3; i++) {
+      const d = new Date(t.getFullYear(), t.getMonth() + i, day);
+      if (d.getDate() === day && d >= t) return ymd(d);
+    }
+  }
+  return null;
+}
+
+// Returns {h, min, mer} — mer is 'am'/'pm'/null.
+function parseClock(s) {
+  s = s.trim().toLowerCase().replace(/\./g, '');
+  if (s === 'noon') return { h: 12, min: 0, mer: 'pm' };
+  if (s === 'midnight') return { h: 0, min: 0, mer: 'am' };
+  const m = s.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm|a|p)?$/);
+  if (!m) return null;
+  const h = +m[1], min = m[2] ? +m[2] : 0;
+  if (min > 59 || h > 23) return null;
+  return { h, min, mer: m[3] ? (m[3][0] === 'a' ? 'am' : 'pm') : null, colon: !!m[2] };
+}
+function to24(c, mer) {
+  mer = c.mer || mer;
+  let h = c.h;
+  if (mer === 'pm' && h < 12) h += 12;
+  if (mer === 'am' && h === 12) h = 0;
+  return String(h).padStart(2, '0') + ':' + String(c.min).padStart(2, '0');
+}
+// A clock time needs am/pm, a colon ("15:00"), or to be noon/midnight — otherwise "3" is too ambiguous.
+function solid(c) { return c && (c.mer || c.colon); }
+
+function parseTime(s) {
+  s = s.trim().toLowerCase().replace(/^(at|@|from)\s*/, '');
+  const one = parseClock(s);
+  if (solid(one)) return { start: to24(one) };
+  const r = s.match(/^(.+?)\s*(?:-|–|to|until|till)\s*(.+)$/);
+  if (r) {
+    const a = parseClock(r[1]), b = parseClock(r[2]);
+    if (a && solid(b)) {
+      // "3-5pm" → both pm; "11-1pm" → 11am-1pm
+      let mer = a.mer;
+      if (!mer && !a.colon) mer = (b.mer === 'pm' && a.h > b.h && a.h < 12) ? 'am' : b.mer;
+      return { start: to24(a, mer), end: to24(b) };
+    }
+  }
+  return null;
+}
+
+function parseReminders(s) {
+  const unitMin = { m: 1, h: 60, d: 1440, w: 10080 };
+  const out = [];
+  let rest = s.toLowerCase().replace(/^remind(er)?s?(\s+me)?/, '');
+  // Digits may touch the unit ("2d"); words need a space, so "and" isn't read as "a d".
+  rest = rest.replace(/\b(?:(\d+(?:\.\d+)?)\s*|(an?|one|two|three|four|five|six|seven|eight|nine|ten)\s+)(minutes?|mins?|m|hours?|hrs?|h|days?|d|weeks?|wks?|w)\b/g, (_, digits, word, u) => {
+    const num = digits ? parseFloat(digits) : WORDNUM[word];
+    out.push(Math.round(num * unitMin[u[0]]));
+    return ' ';
+  });
+  // "remind day before", "remind the night before", "remind week before"
+  rest.replace(/\b(hour|day|night|week)\b/g, (_, u) => { out.push(u === 'week' ? 10080 : u === 'hour' ? 60 : 1440); });
+  return out;
+}
+
+function parseLine(raw) {
+  const line = raw.replace(/^\s*(?:[*•·\-–—]|\d+[.)])\s+/, '').trim();
+  const parts = line.split(/\s+[-–—]\s+|\s*\|\s*/).map(p => p.trim()).filter(Boolean);
+  const item = { title: parts.shift() || '', date: null, start: null, end: null, location: '', notes: '', reminders: [] };
+  const other = [];
+
+  for (const p of parts) {
+    if (/^remind/i.test(p)) {
+      const r = parseReminders(p);
+      if (!r.length) return { ...item, error: `Couldn't read "${p}". Try "remind 1 week before".` };
+      item.reminders.push(...r);
+      continue;
+    }
+    let d, t;
+    if (!item.date && (d = parseDate(p))) { item.date = d; continue; }
+    if ((t = parseTime(p))) {
+      if (!item.start) Object.assign(item, t);
+      else if (!item.end) item.end = t.start;           // "3pm - 5pm" written with spaces
+      continue;
+    }
+    // date and time in one part: "12/14/2026 3pm", "fri at 10am"
+    const words = p.split(/\s+/);
+    let split = false;
+    for (let i = 1; i < words.length && !item.date; i++) {
+      d = parseDate(words.slice(0, i).join(' '));
+      t = parseTime(words.slice(i).join(' '));
+      if (d && t) { item.date = d; Object.assign(item, t); split = true; break; }
+    }
+    if (split) continue;
+    other.push(p);
+  }
+  // Date written first ("dec 12 - comp1633 final")? Then the title is the next plain part.
+  if (!item.date && parseDate(item.title) && other.length) {
+    item.date = parseDate(item.title);
+    item.title = other.shift();
+  }
+  // Anything left: first is the location (kept as typed, even if Maps can't find it), the rest are notes.
+  item.location = other.shift() || '';
+  item.notes = other.join(' - ');
+
+  if (!item.title) return { ...item, error: 'Missing a title at the start of the line.' };
+  if (!item.date) return { ...item, error: parts.length ? `Couldn't find a date. Try 12/14/2026, dec 14, or fri.` : 'Add a date, like:  ' + line + ' - 12/14' };
+  return item;
+}
+
+// =====================================================================
+// Page
+// =====================================================================
+// Your private link is this page plus  #s=<Apps Script deployment ID>&k=<key>.
+// The part after # is never sent to the website hosting this page.
+const link = { s: '', k: '' };
+
+function readLink() {
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (h.get('s') && h.get('k')) {
+    link.s = h.get('s'); link.k = h.get('k');
+    try { localStorage.setItem('quickadd-link', JSON.stringify(link)); } catch (e) {}
+    return true;
+  }
+  try { Object.assign(link, JSON.parse(localStorage.getItem('quickadd-link') || '{}')); } catch (e) {}
+  if (!link.s || !link.k) return false;
+  history.replaceState(null, '', '#s=' + encodeURIComponent(link.s) + '&k=' + encodeURIComponent(link.k));
+  return true;
+}
+
+// Talks to your script with no cookies at all, so Google never sees which accounts this
+// browser is signed into. That's what makes it work with several accounts signed in.
+function run(fn, ...args) {
+  if (link.s === 'demo') return mockApi_(fn, args);
+  return fetch('https://script.google.com/macros/s/' + encodeURIComponent(link.s) + '/exec', {
+    method: 'POST',
+    body: JSON.stringify({ key: link.k, fn, args }),
+    credentials: 'omit',
+  })
+    .then(r => r.json())
+    .then(d => d.ok ? d.result : Promise.reject(new Error(d.error)));
+}
+
+const $ = id => document.getElementById(id);
+const noteEl = $('note'), addBtn = $('add'), clearBtn = $('clear'), syncEl = $('sync');
+let settings = { defaultReminders: [60, 1440], allDayHour: 9 };
+let dirty = false, saveTimer = null, busy = false;
+
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function prettyDate(s) {
+  const [y, m, d] = s.split('-').map(Number);
+  const opts = { weekday: 'short', month: 'short', day: 'numeric' };
+  if (y !== new Date().getFullYear()) opts.year = 'numeric';
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, opts);
+}
+function prettyTime(hm) {
+  const [h, m] = hm.split(':').map(Number);
+  return (h % 12 || 12) + (m ? ':' + String(m).padStart(2, '0') : '') + (h < 12 ? 'am' : 'pm');
+}
+function prettyMins(m) {
+  if (m % 10080 === 0) return (m / 10080) + (m === 10080 ? ' week' : ' weeks');
+  if (m % 1440 === 0) return (m / 1440) + (m === 1440 ? ' day' : ' days');
+  if (m % 60 === 0) return (m / 60) + (m === 60 ? ' hour' : ' hours');
+  return m + ' min';
+}
+function reminderText(item) {
+  let all = settings.defaultReminders.concat(item.reminders);
+  if (!item.start) all = all.filter(m => m >= 1440);
+  all = [...new Set(all)].sort((a, b) => a - b).slice(0, 5);
+  const h = settings.allDayHour;
+  return all.map(prettyMins).join(', ') + ' before' + (item.start ? '' : ` (at ${h % 12 || 12}${h < 12 ? 'am' : 'pm'})`);
+}
+
+function pendingLines() {
+  return noteEl.value.split('\n').filter(l => l.trim() && !l.trim().startsWith(DONE));
+}
+
+function renderPreview() {
+  const lines = pendingLines();
+  const items = lines.map(parseLine);
+  const good = items.filter(i => !i.error).length;
+  addBtn.disabled = busy || !good;
+  addBtn.textContent = busy ? 'Adding…' : good ? `Add ${good} to calendar` : 'Add to calendar';
+  clearBtn.hidden = !noteEl.value.split('\n').some(l => l.trim().startsWith(DONE));
+
+  $('previewWrap').hidden = !items.length;
+  $('preview').innerHTML = items.map(i => `<li>
+    <div class="t">${esc(i.title || '(no title)')}</div>
+    ${i.error ? `<div class="e">${esc(i.error)}</div>` : `<div class="d">
+      <span>📅 ${prettyDate(i.date)}${i.start ? ', ' + prettyTime(i.start) + (i.end ? '–' + prettyTime(i.end) : '') : ' · all day'}</span>
+      ${i.location ? `<span>📍 ${esc(i.location)}</span>` : ''}
+      <span>🔔 ${reminderText(i)}</span>
+      ${i.notes ? `<span>📝 ${esc(i.notes)}</span>` : ''}
+    </div>`}
+  </li>`).join('');
+}
+
+function autoGrow() {
+  noteEl.style.height = 'auto';
+  noteEl.style.height = Math.max(noteEl.scrollHeight, window.innerHeight * 0.45) + 'px';
+}
+
+// ---- saving & syncing between devices ----
+function setNote(text) {
+  noteEl.value = text;
+  try { localStorage.setItem('quickadd-note', text); } catch (e) {}
+  autoGrow();
+  renderPreview();
+}
+function scheduleSave() {
+  dirty = true;
+  syncEl.textContent = 'Saving…';
+  try { localStorage.setItem('quickadd-note', noteEl.value); } catch (e) {}
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveNow, 800);
+}
+function saveNow() {
+  clearTimeout(saveTimer);
+  const text = noteEl.value;
+  return run('saveNote', text)
+    .then(() => { if (noteEl.value === text) { dirty = false; syncEl.textContent = 'Saved'; } })
+    .catch(() => { syncEl.textContent = 'Not saved — check connection'; });
+}
+function pull() {
+  if (dirty || busy) return;
+  run('load').then(res => {
+    settings = res;
+    if (!dirty && res.note !== noteEl.value) setNote(res.note);
+    syncEl.textContent = 'Saved';
+  }).catch(() => { syncEl.textContent = 'Offline'; });
+}
+
+noteEl.addEventListener('input', () => { autoGrow(); renderPreview(); scheduleSave(); });
+noteEl.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); addAll(); } });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) pull(); });
+window.addEventListener('focus', pull);
+
+// ---- adding ----
+function markLine(raw, done) {
+  const lines = noteEl.value.split('\n');
+  const i = done ? lines.indexOf(raw) : lines.indexOf(DONE + ' ' + raw);
+  if (i === -1) return;
+  lines[i] = done ? DONE + ' ' + raw : raw;
+  setNote(lines.join('\n'));
+  scheduleSave();
+}
+
+function addResult(cls, html) {
+  $('resultsWrap').hidden = false;
+  const li = document.createElement('li');
+  li.className = cls;
+  li.innerHTML = html;
+  $('results').append(li);
+  return li;
+}
+
+async function send(raw, item, force, li) {
+  try {
+    const res = await run('addItem', item, force);
+    if (res.status === 'confirm') {
+      const exact = res.matches.some(m => m.kind === 'exact');
+      const el = addResult('warn', `<div class="t">${esc(item.title)}</div>
+        <div class="d">${exact ? 'Already on' : 'Looks like something already on'} ${prettyDate(item.date)}:
+        ${res.matches.map(m => '“' + esc(m.title) + '”').join(', ')}</div>
+        <div class="row"><button class="skip">Skip it</button><button class="solid force">Add anyway</button></div>`);
+      el.querySelector('.skip').onclick = () => { markLine(raw, true); el.remove(); };
+      el.querySelector('.force').onclick = () => send(raw, item, true, el);
+      return;
+    }
+    if (li) li.remove();
+    markLine(raw, true);
+    const el = addResult('ok', `<div class="t">✓ ${esc(item.title)} <button class="link">Undo</button></div>
+      <div class="d">${prettyDate(item.date)}${item.start ? ', ' + prettyTime(item.start) : ''}${item.location ? ' · ' + esc(item.location) : ''}</div>`);
+    el.querySelector('.link').onclick = async () => {
+      await run('removeItem', res.id);
+      markLine(raw, false);
+      el.remove();
+    };
+  } catch (err) {
+    addResult('', `<div class="t">${esc(item.title)}</div><div class="e">${esc(err.message || err)}</div>`);
+  }
+}
+
+async function addAll() {
+  if (busy) return;
+  const todo = pendingLines().map(raw => [raw, parseLine(raw)]).filter(([, i]) => !i.error);
+  if (!todo.length) return;
+  busy = true; renderPreview();
+  $('results').innerHTML = '';
+  for (const [raw, item] of todo) await send(raw, item, false);
+  busy = false; renderPreview();
+}
+
+addBtn.addEventListener('click', addAll);
+clearBtn.addEventListener('click', () => {
+  setNote(noteEl.value.split('\n').filter(l => !l.trim().startsWith(DONE)).join('\n'));
+  scheduleSave();
+});
+
+// ---- one-time setup ----
+$('setupGo').addEventListener('click', () => {
+  const url = $('setupUrl').value.trim(), key = $('setupKey').value.trim();
+  const id = (url.match(/\/s\/([^/?#]+)/) || [])[1] || (/^[\w-]{20,}$/.test(url) || url === 'demo' ? url : '');
+  if (!id) { $('setupMsg').textContent = "That doesn't look like a Web app URL. It should contain /macros/s/…/exec."; return; }
+  if (!key) { $('setupMsg').textContent = 'Paste your key too.'; return; }
+  link.s = id; link.k = key;
+  $('setupGo').disabled = true; $('setupGo').textContent = 'Connecting…'; $('setupMsg').textContent = '';
+  run('load').then(() => {
+    location.hash = 's=' + encodeURIComponent(id) + '&k=' + encodeURIComponent(key);
+    readLink();
+    $('linkBox').hidden = false;
+    start();
+  }).catch(err => {
+    $('setupMsg').textContent = /key/i.test(err.message) ? 'The key is wrong. Copy it again from getMyKey.'
+      : "Couldn't reach your script. Check the URL, and that the deployment's access is set to Anyone.";
+  }).finally(() => { $('setupGo').disabled = false; $('setupGo').textContent = 'Connect'; });
+});
+$('copyLink').addEventListener('click', () => {
+  navigator.clipboard.writeText(location.href).then(() => { $('copyLink').textContent = 'Copied'; });
+});
+$('hideLink').addEventListener('click', () => { $('linkBox').hidden = true; });
+window.addEventListener('hashchange', () => { if (readLink()) pull(); });
+
+// ---- start ----
+function start() {
+  $('setup').hidden = true;
+  $('app').hidden = false;
+  try { const cached = localStorage.getItem('quickadd-note'); if (cached && !noteEl.value) setNote(cached); } catch (e) {}
+  autoGrow();
+  renderPreview();
+  pull();
+}
+if (readLink()) start();
+else { $('setup').hidden = false; syncEl.textContent = ''; }
+
+// ---- demo backend: set up with the URL "demo" to try the page without a script ----
+function mockApi_(fn, args) {
+  const store = mockApi_.store || (mockApi_.store = { note: '', existing: [{ title: 'COMP1633 Final', date: '2026-12-14' }] });
+  const norm = s => s.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
+  const api = {
+    load: () => ({ note: store.note, defaultReminders: [60, 1440], allDayHour: 9 }),
+    saveNote: t => { store.note = t; return true; },
+    addItem: (item, force) => {
+      const m = store.existing.filter(e => e.date === item.date && (norm(e.title).includes(norm(item.title)) || norm(item.title).includes(norm(e.title))));
+      if (!force && m.length) return { status: 'confirm', matches: m.map(e => ({ title: e.title, kind: norm(e.title) === norm(item.title) ? 'exact' : 'similar' })) };
+      store.existing.push({ title: item.title, date: item.date });
+      return { status: 'created', id: String(Math.random()) };
+    },
+    removeItem: () => true,
+  };
+  return new Promise(ok => setTimeout(() => ok(api[fn](...args)), 200));
+}
+</script>
+</body>
+</html>
