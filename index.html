@@ -313,25 +313,28 @@ const COLOR_NAMES = {
   tomato: 11, red: 11, 'dark red': 11,
 };
 
-// "red", "colour red", "color: light blue", "red colour" → '11'; undefined if it isn't a color part
-function parseColor(p) {
-  const s = p.toLowerCase().replace(/\s+/g, ' ').trim();
-  const m = s.match(/^colou?r:? (.+)$/) || s.match(/^(.+) colou?r$/);
-  const name = m ? m[1] : s;
-  if (COLOR_NAMES[name]) return String(COLOR_NAMES[name]);
-  return m ? null : undefined;   // null = they asked for a color we don't know
+// "colour red", "color: light blue" → '11' / '7'; null for an unknown colour name
+function parseColor(name) {
+  const id = COLOR_NAMES[name.toLowerCase().replace(/\s+/g, ' ').trim()];
+  return id ? String(id) : null;
 }
 
 function parseLine(raw) {
   const line = raw.replace(/^\s*(?:[*•·\-–—]|\d+[.)])\s+/, '').trim();
   const parts = line.split(/\s+[-–—]\s+|\s*\|\s*/).map(p => p.trim()).filter(Boolean);
   const item = { title: parts.shift() || '', date: null, start: null, end: null, location: '', notes: '', color: null, reminders: [] };
-  const other = [];
+  const other = [], notes = [];
+  let m;
 
   for (const p of parts) {
-    const c = parseColor(p);
-    if (c === null) return { ...item, error: `Don't know the colour "${p}". Try red, orange, yellow, green, blue, purple, pink or gray.` };
-    if (c) { item.color = c; continue; }
+    // Labeled parts: "colour red", "note bring calculator", "room B220"
+    if ((m = p.match(/^colou?r\b:?\s*(.*)$/i))) {
+      item.color = parseColor(m[1]);
+      if (!item.color) return { ...item, error: `Don't know the colour "${m[1]}". Try red, orange, yellow, green, blue, purple, pink or gray.` };
+      continue;
+    }
+    if ((m = p.match(/^notes?\b:?\s*(.*)$/i))) { if (m[1]) notes.push(m[1]); continue; }
+    if (/^room\b/i.test(p)) { item.location = p; continue; }   // kept as typed, even if Maps can't find it
     if (/^remind/i.test(p)) {
       const r = parseReminders(p);
       if (!r.length) return { ...item, error: `Couldn't read "${p}". Try "remind 1 week before".` };
@@ -361,9 +364,8 @@ function parseLine(raw) {
     item.date = parseDate(item.title);
     item.title = other.shift();
   }
-  // Anything left: first is the location (kept as typed, even if Maps can't find it), the rest are notes.
-  item.location = other.shift() || '';
-  item.notes = other.join(' - ');
+  // Anything left without a label goes into the description too, so nothing typed is lost.
+  item.notes = notes.concat(other).join('\n');
 
   if (!item.title) return { ...item, error: 'Missing a title at the start of the line.' };
   if (!item.date) return { ...item, error: parts.length ? `Couldn't find a date. Try 12/14/2026, dec 14, or fri.` : 'Add a date, like:  ' + line + ' - 12/14' };
